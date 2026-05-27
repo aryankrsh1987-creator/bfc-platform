@@ -6,6 +6,12 @@ import { supabase } from "@/lib/supabase";
 
 export default function CrewsPage() {
 
+  const ADMIN_EMAIL =
+    "aryan.kr.sh1987@gmail.com";
+
+  const [user, setUser] =
+    useState<any>(null);
+
   const [selectedRegion, setSelectedRegion] =
     useState("Global");
 
@@ -15,13 +21,29 @@ export default function CrewsPage() {
   const [crews, setCrews] =
     useState<any[]>([]);
 
-  // FETCH CREWS
+  // FETCH USER + CREWS
   useEffect(() => {
 
-    fetchCrews();
+    const loadData = async () => {
+
+      const { data } =
+        await supabase.auth.getUser();
+
+      if (data.user) {
+
+        setUser(data.user);
+
+      }
+
+      fetchCrews();
+
+    };
+
+    loadData();
 
   }, []);
 
+  // FETCH CREWS
   const fetchCrews = async () => {
 
     const { data } =
@@ -41,7 +63,9 @@ export default function CrewsPage() {
   };
 
   // APPLY TO CREW
-  const applyToCrew = async (crew: any) => {
+  const applyToCrew = async (
+    crew: any
+  ) => {
 
     const { data: authData } =
       await supabase.auth.getUser();
@@ -89,6 +113,38 @@ export default function CrewsPage() {
     }
 
     alert("Application sent!");
+
+  };
+
+  // DELETE CREW
+  const deleteCrew = async (
+    crewId: number
+  ) => {
+
+    const confirmDelete =
+      confirm(
+        "Delete this crew?"
+      );
+
+    if (!confirmDelete) return;
+
+    const { error } =
+      await supabase
+        .from("crews")
+        .delete()
+        .eq("id", crewId);
+
+    if (error) {
+
+      alert(error.message);
+
+      return;
+
+    }
+
+    alert("Crew deleted!");
+
+    fetchCrews();
 
   };
 
@@ -308,9 +364,7 @@ export default function CrewsPage() {
                   </p>
 
                   <p className="text-4xl font-black text-green-400">
-
                     {crew.pub_won || 0}
-
                   </p>
 
                 </div>
@@ -322,9 +376,7 @@ export default function CrewsPage() {
                   </p>
 
                   <p className="text-4xl font-black text-red-400">
-
                     {crew.pub_lost || 0}
-
                   </p>
 
                 </div>
@@ -336,9 +388,7 @@ export default function CrewsPage() {
                   </p>
 
                   <p className="text-4xl font-black text-cyan-400">
-
                     {crew.org_won || 0}
-
                   </p>
 
                 </div>
@@ -350,9 +400,7 @@ export default function CrewsPage() {
                   </p>
 
                   <p className="text-4xl font-black text-orange-400">
-
                     {crew.org_lost || 0}
-
                   </p>
 
                 </div>
@@ -362,7 +410,6 @@ export default function CrewsPage() {
               {/* ACTION BUTTONS */}
               <div className="grid grid-cols-2 gap-4">
 
-                {/* APPLY */}
                 <button
                   onClick={() =>
                     applyToCrew(crew)
@@ -372,7 +419,6 @@ export default function CrewsPage() {
                   Apply To Join
                 </button>
 
-                {/* REQUEST WAR */}
                 <Link
                   href={`/request-war?crew=${encodeURIComponent(
                     crew.crew_name
@@ -383,6 +429,21 @@ export default function CrewsPage() {
                 </Link>
 
               </div>
+
+              {/* ADMIN DELETE */}
+              {user &&
+                user.email === ADMIN_EMAIL && (
+
+                <button
+                  onClick={() =>
+                    deleteCrew(crew.id)
+                  }
+                  className="mt-4 w-full bg-red-500 hover:bg-red-600 transition duration-300 py-3 rounded-2xl font-black"
+                >
+                  🗑 Delete Crew
+                </button>
+
+              )}
 
             </div>
 
