@@ -6,13 +6,28 @@ import Link from "next/link";
 
 export default function CrewDashboardPage() {
 
-  const [requests, setRequests] = useState<any[]>([]);
+  const [requests, setRequests] =
+    useState<any[]>([]);
 
-  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] =
+    useState<any[]>([]);
+
+  const [loading, setLoading] =
+    useState(true);
 
   useEffect(() => {
 
     loadRequests();
+
+    const interval =
+      setInterval(() => {
+
+        loadRequests();
+
+      }, 3000);
+
+    return () =>
+      clearInterval(interval);
 
   }, []);
 
@@ -24,15 +39,19 @@ export default function CrewDashboardPage() {
     if (!authData.user) return;
 
     // GET OWNER CREWS
-    const { data: crews } = await supabase
-      .from("crews")
-      .select("*")
-      .eq(
-        "owner_email",
-        authData.user.email
-      );
+    const { data: crews } =
+      await supabase
+        .from("crews")
+        .select("*")
+        .eq(
+          "owner_email",
+          authData.user.email
+        );
 
-    if (!crews || crews.length === 0) {
+    if (
+      !crews ||
+      crews.length === 0
+    ) {
 
       setLoading(false);
 
@@ -40,22 +59,57 @@ export default function CrewDashboardPage() {
 
     }
 
-    const crewNames = crews.map(
-      (crew) => crew.crew_name
+    const crewNames =
+      crews.map(
+        (crew) =>
+          crew.crew_name
+      );
+
+    // GET APPLICATIONS
+    const {
+      data: requestData,
+    } = await supabase
+      .from("crew_requests")
+      .select("*")
+      .in(
+        "crew_name",
+        crewNames
+      )
+      .eq(
+        "status",
+        "pending"
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        }
+      );
+
+    setRequests(
+      requestData || []
     );
 
-    // GET REQUESTS
-    const { data: requestData } =
-      await supabase
-        .from("crew_requests")
-        .select("*")
-        .in("crew_name", crewNames)
-        .eq("status", "pending")
-        .order("created_at", {
+    // GET NOTIFICATIONS
+    const {
+      data: notificationData,
+    } = await supabase
+      .from("notifications")
+      .select("*")
+      .eq(
+        "user_email",
+        authData.user.email
+      )
+      .order(
+        "created_at",
+        {
           ascending: false,
-        });
+        }
+      );
 
-    setRequests(requestData || []);
+    setNotifications(
+      notificationData || []
+    );
 
     setLoading(false);
 
@@ -65,16 +119,17 @@ export default function CrewDashboardPage() {
     request: any
   ) => {
 
-    // ADD MEMBER
     await supabase
       .from("crew_members")
       .insert([
 
         {
 
-          crew_id: request.crew_id,
+          crew_id:
+            request.crew_id,
 
-          crew_name: request.crew_name,
+          crew_name:
+            request.crew_name,
 
           member_email:
             request.applicant_email,
@@ -86,13 +141,15 @@ export default function CrewDashboardPage() {
 
       ]);
 
-    // UPDATE STATUS
     await supabase
       .from("crew_requests")
       .update({
         status: "accepted",
       })
-      .eq("id", request.id);
+      .eq(
+        "id",
+        request.id
+      );
 
     loadRequests();
 
@@ -107,13 +164,17 @@ export default function CrewDashboardPage() {
       .update({
         status: "rejected",
       })
-      .eq("id", request.id);
+      .eq(
+        "id",
+        request.id
+      );
 
     loadRequests();
 
   };
 
   return (
+
     <main className="min-h-screen bg-black text-white relative overflow-hidden">
 
       {/* GLOW */}
@@ -167,13 +228,17 @@ export default function CrewDashboardPage() {
         </h1>
 
         <p className="text-zinc-400 text-xl">
-          Manage applications and recruit members.
+          Manage applications and notifications.
         </p>
 
       </section>
 
-      {/* REQUESTS */}
-      <section className="relative z-10 max-w-6xl mx-auto px-6 pb-20">
+      {/* APPLICATIONS */}
+      <section className="relative z-10 max-w-6xl mx-auto px-6 pb-10">
+
+        <h2 className="text-3xl font-black mb-6">
+          Applications
+        </h2>
 
         {loading ? (
 
@@ -193,79 +258,271 @@ export default function CrewDashboardPage() {
 
           <div className="space-y-6">
 
-            {requests.map((request, index) => (
+            {requests.map(
+              (
+                request,
+                index
+              ) => (
 
-              <div
-                key={index}
-                className="bg-white/[0.04] border border-white/10 rounded-3xl p-8 backdrop-blur-xl"
-              >
+                <div
+                  key={index}
+                  className="bg-white/[0.04] border border-white/10 rounded-3xl p-8 backdrop-blur-xl"
+                >
 
-                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
+                  <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
 
-                  {/* LEFT */}
-                  <div>
+                    <div>
 
-                    <h2 className="text-4xl font-black mb-3">
+                      <h2 className="text-4xl font-black mb-3">
 
-                      {request.applicant_username}
+                        {request.applicant_username}
 
-                    </h2>
+                      </h2>
 
-                    <div className="space-y-2 text-zinc-400">
+                      <div className="space-y-2 text-zinc-400">
 
-                      <p>
-                        📥 Applied To:
-                        <span className="text-white ml-2">
-                          {request.crew_name}
-                        </span>
-                      </p>
+                        <p>
+                          📥 Applied To:
+                          <span className="text-white ml-2">
+                            {request.crew_name}
+                          </span>
+                        </p>
 
-                      <p>
-                        🌍 Region:
-                        <span className="text-white ml-2">
-                          {request.applicant_region}
-                        </span>
-                      </p>
+                        <p>
+                          🌍 Region:
+                          <span className="text-white ml-2">
+                            {request.applicant_region}
+                          </span>
+                        </p>
 
-                      <p>
-                        📧 Email:
-                        <span className="text-white ml-2">
-                          {request.applicant_email}
-                        </span>
-                      </p>
+                        <p>
+                          📧 Email:
+                          <span className="text-white ml-2">
+                            {request.applicant_email}
+                          </span>
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <div className="flex gap-4">
+
+                      <button
+                        onClick={() =>
+                          acceptRequest(
+                            request
+                          )
+                        }
+                        className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold"
+                      >
+                        Accept
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          rejectRequest(
+                            request
+                          )
+                        }
+                        className="bg-red-500 hover:bg-red-400 transition px-8 py-4 rounded-2xl font-bold"
+                      >
+                        Reject
+                      </button>
 
                     </div>
 
                   </div>
 
-                  {/* BUTTONS */}
+                </div>
+
+              )
+            )}
+
+          </div>
+
+        )}
+
+      </section>
+
+      {/* NOTIFICATIONS */}
+      <section className="relative z-10 max-w-6xl mx-auto px-6 pb-20">
+
+        <h2 className="text-3xl font-black mb-6">
+          Notifications
+        </h2>
+
+        {notifications.length === 0 ? (
+
+          <div className="bg-white/[0.04] border border-white/10 rounded-3xl p-10 text-center text-zinc-400 text-xl">
+
+            No notifications.
+
+          </div>
+
+        ) : (
+
+          <div className="space-y-6">
+
+            {notifications.map(
+              (
+                notif,
+                index
+              ) => (
+
+                <div
+                  key={index}
+                  className="bg-white/[0.04] border border-white/10 rounded-3xl p-8 backdrop-blur-xl"
+                >
+
+                  <h2 className="text-3xl font-black mb-3">
+
+                    {notif.title}
+
+                  </h2>
+
+                  <p className="text-zinc-300 text-lg mb-6">
+
+                    {notif.message}
+
+                  </p>
+
                   <div className="flex gap-4">
 
+                    {/* ACCEPT */}
                     <button
-                      onClick={() =>
-                        acceptRequest(request)
-                      }
-                      className="bg-green-500 hover:bg-green-400 transition px-8 py-4 rounded-2xl font-bold"
+                      onClick={async () => {
+
+                        const { data: authData } =
+                          await supabase.auth.getUser();
+
+                        const match =
+                          notif.message.match(
+                            /\((.*?)\)/
+                          );
+
+                        if (match?.[1]) {
+
+                          // CREATE PRIVATE WAR CHAT
+                          await supabase
+                            .from("war_chats")
+                            .insert([
+
+                              {
+
+                                requester_email:
+                                  match[1],
+
+                                opponent_email:
+                                  authData.user?.email,
+
+                              },
+
+                            ]);
+
+                          // SEND ACCEPT NOTIFICATION
+                          await supabase
+                            .from("notifications")
+                            .insert([
+
+                              {
+
+                                user_email:
+                                  match[1],
+
+                                title:
+                                  "⚔️ War Accepted",
+
+                                message:
+                                  "Your war request was accepted. Open war chat now."
+
+                              },
+
+                            ]);
+
+                        }
+
+                        // DELETE CURRENT NOTIFICATION
+                        await supabase
+                          .from("notifications")
+                          .delete()
+                          .eq(
+                            "id",
+                            notif.id
+                          );
+
+                        setNotifications(
+                          notifications.filter(
+                            (n) =>
+                              n.id !== notif.id
+                          )
+                        );
+
+                      }}
+                      className="bg-green-500 hover:bg-green-400 transition px-6 py-3 rounded-2xl font-bold"
                     >
-                      Accept
+                      ✅ Accept War
                     </button>
 
+                    {/* DODGE */}
                     <button
-                      onClick={() =>
-                        rejectRequest(request)
-                      }
-                      className="bg-red-500 hover:bg-red-400 transition px-8 py-4 rounded-2xl font-bold"
+                      onClick={async () => {
+
+                        const match =
+                          notif.message.match(
+                            /\((.*?)\)/
+                          );
+
+                        if (match?.[1]) {
+
+                          await supabase
+                            .from("notifications")
+                            .insert([
+
+                              {
+
+                                user_email:
+                                  match[1],
+
+                                title:
+                                  "❌ War Dodged",
+
+                                message:
+                                  "Your war request was dodged."
+
+                              },
+
+                            ]);
+
+                        }
+
+                        await supabase
+                          .from("notifications")
+                          .delete()
+                          .eq(
+                            "id",
+                            notif.id
+                          );
+
+                        setNotifications(
+                          notifications.filter(
+                            (n) =>
+                              n.id !== notif.id
+                          )
+                        );
+
+                      }}
+                      className="bg-red-500 hover:bg-red-400 transition px-6 py-3 rounded-2xl font-bold"
                     >
-                      Reject
+                      ❌ Dodge
                     </button>
 
                   </div>
 
                 </div>
 
-              </div>
-
-            ))}
+              )
+            )}
 
           </div>
 
@@ -274,5 +531,7 @@ export default function CrewDashboardPage() {
       </section>
 
     </main>
+
   );
+
 }

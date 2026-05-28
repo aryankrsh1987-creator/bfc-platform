@@ -40,9 +40,11 @@ export default function RequestWarPage() {
 
     }
 
-    if (!enemyCrew) {
+    if (!enemyCrew.trim()) {
 
-      alert("Please fill enemy crew.");
+      alert(
+        "Please enter enemy crew."
+      );
 
       return;
 
@@ -63,6 +65,42 @@ export default function RequestWarPage() {
 
     setLoading(true);
 
+    // GET PLAYER USERNAME
+    const { data: playerData } =
+      await supabase
+        .from("players")
+        .select("username")
+        .eq(
+          "email",
+          authData.user.email
+        )
+        .single();
+
+    // FIND TARGET CREW
+    const { data: targetCrew } =
+      await supabase
+        .from("crews")
+        .select("owner_email")
+        .eq(
+          "crew_name",
+          enemyCrew
+        )
+        .single();
+
+    // CREW DOES NOT EXIST
+    if (!targetCrew) {
+
+      setLoading(false);
+
+      alert(
+        "Crew does not exist."
+      );
+
+      return;
+
+    }
+
+    // CREATE WAR REQUEST
     const { error } =
       await supabase
         .from("war_requests")
@@ -74,10 +112,8 @@ export default function RequestWarPage() {
               authData.user.email,
 
             requester_username:
-              authData.user.user_metadata
-                ?.full_name ||
-
-              authData.user.email,
+              playerData?.username ||
+              "Unknown Player",
 
             target_crew_name:
               enemyCrew,
@@ -105,15 +141,37 @@ export default function RequestWarPage() {
 
         ]);
 
-    setLoading(false);
-
     if (error) {
+
+      setLoading(false);
 
       alert(error.message);
 
       return;
 
     }
+
+    // SEND WEBSITE NOTIFICATION
+    await supabase
+      .from("notifications")
+      .insert([
+
+        {
+
+          user_email:
+            targetCrew.owner_email,
+
+          title:
+            "⚔️ New War Request",
+
+          message:
+            `${playerData?.username || "Unknown Player"} requested a ${warType} war against ${enemyCrew}.`
+
+        },
+
+      ]);
+
+    setLoading(false);
 
     alert(
       "War request sent!"
@@ -126,6 +184,7 @@ export default function RequestWarPage() {
   };
 
   return (
+
     <main className="min-h-screen bg-black text-white overflow-hidden relative flex items-center justify-center px-6 py-20">
 
       {/* RED GLOW */}
@@ -195,8 +254,8 @@ export default function RequestWarPage() {
 
             <div className="grid grid-cols-2 gap-4">
 
-              {/* ORGANIZED */}
               <button
+                type="button"
                 onClick={() =>
                   setWarType(
                     "organized"
@@ -213,8 +272,8 @@ export default function RequestWarPage() {
                 🏆 Organized War
               </button>
 
-              {/* PUBLIC */}
               <button
+                type="button"
                 onClick={() =>
                   setWarType(
                     "public"
@@ -240,7 +299,6 @@ export default function RequestWarPage() {
 
             <>
 
-              {/* FORMAT */}
               <div>
 
                 <p className="text-zinc-400 mb-2">
@@ -257,27 +315,15 @@ export default function RequestWarPage() {
                   className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 outline-none"
                 >
 
-                  <option>
-                    1v1
-                  </option>
-
-                  <option>
-                    2v2
-                  </option>
-
-                  <option>
-                    3v3
-                  </option>
-
-                  <option>
-                    4v4
-                  </option>
+                  <option>1v1</option>
+                  <option>2v2</option>
+                  <option>3v3</option>
+                  <option>4v4</option>
 
                 </select>
 
               </div>
 
-              {/* DATE */}
               <div>
 
                 <p className="text-zinc-400 mb-2">
@@ -285,7 +331,7 @@ export default function RequestWarPage() {
                 </p>
 
                 <input
-                  type="datetime-local"
+                  type="date"
                   value={date}
                   onChange={(e) =>
                     setDate(
@@ -318,17 +364,9 @@ export default function RequestWarPage() {
               className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 outline-none"
             >
 
-              <option>
-                Asia
-              </option>
-
-              <option>
-                Europe
-              </option>
-
-              <option>
-                Oceania
-              </option>
+              <option>Asia</option>
+              <option>Europe</option>
+              <option>Oceania</option>
 
             </select>
 
@@ -352,55 +390,6 @@ export default function RequestWarPage() {
               placeholder="Additional war details..."
               className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 resize-none outline-none"
             />
-
-          </div>
-
-          {/* PREVIEW */}
-          <div className="bg-white/[0.03] border border-white/10 rounded-3xl p-6">
-
-            <p className="text-zinc-500 mb-4">
-              War Preview
-            </p>
-
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-
-              <div>
-
-                <h2 className="text-3xl font-black">
-                  Your Crew
-                </h2>
-
-                <p className="text-zinc-500 py-1">
-                  VS
-                </p>
-
-                <h2 className="text-3xl font-black text-red-400">
-                  {enemyCrew || "Enemy Crew"}
-                </h2>
-
-              </div>
-
-              <div className="text-right">
-
-                <p className="text-purple-400 font-bold">
-                  {warType.toUpperCase()}
-                </p>
-
-                {warType === "organized" && (
-
-                  <p className="text-zinc-400">
-                    {format}
-                  </p>
-
-                )}
-
-                <p className="text-zinc-400">
-                  {region}
-                </p>
-
-              </div>
-
-            </div>
 
           </div>
 
@@ -430,5 +419,7 @@ export default function RequestWarPage() {
       </div>
 
     </main>
+
   );
+
 }
