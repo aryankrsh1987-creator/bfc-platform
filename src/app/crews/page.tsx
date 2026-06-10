@@ -419,14 +419,18 @@ export default function CrewsPage() {
                   Apply To Join
                 </button>
 
-                <Link
-                  href={`/request-war?crew=${encodeURIComponent(
-                    crew.crew_name
-                  )}`}
-                  className="w-full bg-gradient-to-r from-red-500 to-orange-500 py-4 rounded-2xl font-bold hover:scale-[1.02] transition duration-300 flex items-center justify-center shadow-[0_0_30px_rgba(239,68,68,0.35)]"
-                >
-                  ⚔️ Request War
-                </Link>
+               <a
+  href={
+    crew.discord?.startsWith("http")
+      ? crew.discord
+      : `https://${crew.discord}`
+  }
+  target="_blank"
+  rel="noopener noreferrer"
+  className="w-full bg-gradient-to-r from-indigo-500 to-cyan-500 py-4 rounded-2xl font-bold hover:scale-[1.02] transition duration-300 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.35)]"
+>
+  💬 Join Discord
+</a>
 
               </div>
 
