@@ -62,59 +62,7 @@ export default function CrewsPage() {
 
   };
 
-  // APPLY TO CREW
-  const applyToCrew = async (
-    crew: any
-  ) => {
-
-    const { data: authData } =
-      await supabase.auth.getUser();
-
-    if (!authData.user) {
-
-      alert("Login first.");
-
-      return;
-
-    }
-
-    const { error } = await supabase
-      .from("crew_requests")
-      .insert([
-
-        {
-
-          crew_id: crew.id,
-
-          crew_name: crew.crew_name,
-
-          applicant_email:
-            authData.user.email,
-
-          applicant_username:
-            authData.user.user_metadata
-              ?.full_name ||
-
-            authData.user.email,
-
-          applicant_region:
-            crew.region,
-
-        },
-
-      ]);
-
-    if (error) {
-
-      alert(error.message);
-
-      return;
-
-    }
-
-    alert("Application sent!");
-
-  };
+ 
 
   // DELETE CREW
   const deleteCrew = async (
@@ -407,32 +355,22 @@ export default function CrewsPage() {
 
               </div>
 
-              {/* ACTION BUTTONS */}
-              <div className="grid grid-cols-2 gap-4">
+<div className="grid grid-cols-1 gap-4">
 
-                <button
-                  onClick={() =>
-                    applyToCrew(crew)
-                  }
-                  className="w-full bg-gradient-to-r from-purple-500 to-blue-500 py-4 rounded-2xl font-bold hover:scale-[1.02] transition duration-300 shadow-[0_0_30px_rgba(168,85,247,0.4)]"
-                >
-                  Apply To Join
-                </button>
+  <a
+    href={
+      crew.discord?.startsWith("http")
+        ? crew.discord
+        : `https://${crew.discord}`
+    }
+    target="_blank"
+    rel="noopener noreferrer"
+    className="w-full bg-gradient-to-r from-indigo-500 to-cyan-500 py-4 rounded-2xl font-bold hover:scale-[1.02] transition duration-300 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.35)]"
+  >
+    💬 Join Discord
+  </a>
 
-               <a
-  href={
-    crew.discord?.startsWith("http")
-      ? crew.discord
-      : `https://${crew.discord}`
-  }
-  target="_blank"
-  rel="noopener noreferrer"
-  className="w-full bg-gradient-to-r from-indigo-500 to-cyan-500 py-4 rounded-2xl font-bold hover:scale-[1.02] transition duration-300 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.35)]"
->
-  💬 Join Discord
-</a>
-
-              </div>
+</div>
 
               {/* ADMIN DELETE */}
               {user &&
