@@ -298,7 +298,7 @@ export default function Home() {
           onMouseEnter={playHoverSound}
           className="text-3xl font-black tracking-wide bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
         >
-          BFC
+          UC
         </Link>
 
         {/* NAV ITEMS */}
@@ -360,13 +360,7 @@ export default function Home() {
             Leaderboards
           </Link>
 
-          <Link
-            href="/chat"
-            onMouseEnter={playHoverSound}
-            className="text-zinc-300 hover:text-cyan-400 transition"
-          >
-            Chat
-          </Link>
+    
 
           <Link
             href="/rules"
@@ -486,7 +480,15 @@ export default function Home() {
 
               `}
             >
-              Blox Fruits
+             <span className="text-white">
+  Union
+</span>
+
+<br />
+
+<span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+  Competitive
+</span>
             </span>
 
             <br />
@@ -500,10 +502,11 @@ export default function Home() {
 
               `}
             >
-              Competitive
+            
             </span>
 
           </h1>
+          
 
         </div>
 
@@ -553,13 +556,7 @@ export default function Home() {
             View Rankings
           </Link>
 
-          <Link
-            href="/chat"
-            onMouseEnter={playHoverSound}
-            className="border border-cyan-500/20 bg-cyan-500/10 backdrop-blur-md px-8 py-4 rounded-2xl font-bold hover:bg-cyan-500/20 hover:scale-105 transition duration-300 shadow-[0_0_30px_rgba(34,211,238,0.25)]"
-          >
-            Global Chat
-          </Link>
+          
 
         </div>
 

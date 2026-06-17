@@ -14,7 +14,11 @@ export default function CrewsPage() {
 
   const [selectedRegion, setSelectedRegion] =
     useState("Global");
+const [selectedDevice, setSelectedDevice] =
+  useState("");
 
+const [selectedMatchType, setSelectedMatchType] =
+  useState("");
   const [search, setSearch] =
     useState("");
 
@@ -186,9 +190,15 @@ export default function CrewsPage() {
 
             <button
               key={region}
-              onClick={() =>
-                setSelectedRegion(region)
-              }
+             onClick={() => {
+
+  setSelectedRegion(region);
+
+  setSelectedDevice("");
+
+  setSelectedMatchType("");
+
+}}
               className={`px-6 py-3 rounded-2xl font-bold transition duration-300
 
               ${selectedRegion === region
@@ -203,7 +213,66 @@ export default function CrewsPage() {
           ))}
 
         </div>
+{/* DEVICE FILTER */}
+{selectedRegion !== "Global" && (
 
+  <div className="flex flex-wrap justify-center gap-4 mt-6">
+
+    {["PC", "Mobile", "Console"].map((device) => (
+
+      <button
+        key={device}
+        onClick={() => {
+
+          setSelectedDevice(device);
+
+          setSelectedMatchType("");
+
+        }}
+        className={`px-6 py-3 rounded-2xl font-bold transition
+
+        ${
+          selectedDevice === device
+            ? "bg-gradient-to-r from-cyan-500 to-blue-500"
+            : "bg-white/5 border border-white/10"
+        }`}
+      >
+        {device}
+      </button>
+
+    ))}
+
+  </div>
+
+)}
+{/* MATCH TYPE FILTER */}
+{selectedDevice && (
+
+  <div className="flex flex-wrap justify-center gap-4 mt-6">
+
+    {["1v1", "2v2"].map((type) => (
+
+      <button
+        key={type}
+        onClick={() =>
+          setSelectedMatchType(type)
+        }
+        className={`px-6 py-3 rounded-2xl font-bold transition
+
+        ${
+          selectedMatchType === type
+            ? "bg-gradient-to-r from-green-500 to-emerald-500"
+            : "bg-white/5 border border-white/10"
+        }`}
+      >
+        {type}
+      </button>
+
+    ))}
+
+  </div>
+
+)}
       </section>
 
       {/* BUTTONS */}
@@ -211,12 +280,7 @@ export default function CrewsPage() {
 
         <div className="flex flex-wrap justify-center gap-5">
 
-          <Link
-            href="/submit-war"
-            className="bg-gradient-to-r from-red-500 to-purple-500 px-8 py-5 rounded-3xl font-black text-xl hover:scale-105 transition duration-300 shadow-[0_0_40px_rgba(239,68,68,0.35)]"
-          >
-            ⚔️ Upload War Logs
-          </Link>
+         
 
           <Link
             href="/create-crew"

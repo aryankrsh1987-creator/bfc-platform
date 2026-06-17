@@ -40,7 +40,7 @@ export default function RulesPage() {
           href="/"
           className="text-3xl font-black bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent"
         >
-          BFC
+          UC
         </Link>
 
         <div className="flex items-center gap-6">
@@ -59,13 +59,7 @@ export default function RulesPage() {
             Crews
           </Link>
 
-          <Link
-            href="/chat"
-            className="text-zinc-300 hover:text-cyan-400 transition"
-          >
-            Chat
-          </Link>
-
+         
         </div>
 
       </nav>
@@ -79,7 +73,7 @@ export default function RulesPage() {
 
         <h1 className="text-7xl font-black mb-6">
 
-          BFC
+          UC
           <span className="bg-gradient-to-r from-red-400 to-purple-400 bg-clip-text text-transparent">
             {" "}Competitive Rules
           </span>
@@ -221,73 +215,68 @@ export default function RulesPage() {
 
         </div>
 
-        {/* FAIR PLAY */}
-        <div className="bg-white/[0.04] border border-white/10 rounded-3xl overflow-hidden">
+       {/* COMPETITIVE INTEGRITY */}
 
-          <button
-            onClick={() =>
-              toggleSection("macros")
-            }
-            className="w-full px-8 py-6 flex items-center justify-between text-left hover:bg-white/[0.03] transition"
-          >
+<div className="bg-white/[0.04] border border-white/10 rounded-3xl overflow-hidden">
 
-            <div>
+<button
+onClick={() =>
+toggleSection("macros")
+}
+className="w-full px-8 py-6 flex items-center justify-between text-left hover:bg-white/[0.03] transition"
 
-              <p className="text-orange-400 font-bold mb-2">
-                🚫 MACROS & FFLAGS
-              </p>
+>
 
-              <h2 className="text-3xl font-black">
-                Fair Play Policies
-              </h2>
+```
+<div>
 
-            </div>
+  <h2 className="text-3xl font-black">
+    Competitive Integrity
+  </h2>
 
-            <span className="text-3xl">
-              {openSection === "macros"
-                ? "−"
-                : "+"}
-            </span>
+</div>
 
-          </button>
+<span className="text-3xl">
+  {openSection === "macros"
+    ? "−"
+    : "+"}
+</span>
+```
 
-          {openSection === "macros" && (
+  </button>
 
-            <div className="px-8 pb-8 text-zinc-300 space-y-4">
+{openSection === "macros" && (
 
-              <p>
-                • Macros and auto-clickers are prohibited.
-              </p>
+```
+<div className="px-8 pb-8 text-zinc-300 space-y-4">
 
-              <p>
-                • Exploiting glitches or unintended mechanics is prohibited.
-              </p>
+  <p>
+    • Any form of hacks, cheats, scripts, or external advantages are banned.
+  </p>
 
-              <p>
-                • Any form of hacks, cheats, scripts, or external advantages are banned.
-              </p>
+  <p>
+    • Abuse of game-breaking bugs may result in permanent blacklist.
+  </p>
 
-              <p>
-                • Abuse of game-breaking bugs may result in permanent blacklist.
-              </p>
+  <p>
+    • No animation fflags are banned.
+  </p>
 
-              <p>
-                • No animation fflags are banned.
-              </p>
+  <p>
+    • Abusive rendering fflags are prohibited.
+  </p>
 
-              <p>
-                • Abusive rendering fflags are prohibited.
-              </p>
+  <p>
+    • Staff decide whether an fflag is abusive.
+  </p>
 
-              <p>
-                • Staff decide whether an fflag is abusive.
-              </p>
+</div>
+```
 
-            </div>
+)}
 
-          )}
+</div>
 
-        </div>
 
         {/* PUNISHMENTS */}
         <div className="bg-white/[0.04] border border-white/10 rounded-3xl overflow-hidden">
