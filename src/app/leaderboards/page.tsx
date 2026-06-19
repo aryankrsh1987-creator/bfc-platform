@@ -4,13 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import type { PlayerRanking } from "@/lib/types";
 
 export default function LeaderboardsPage() {
   const router = useRouter();
 
   const hoverAudio = useRef<HTMLAudioElement | null>(null);
 
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<
+    (PlayerRanking & { displayRank: number })[]
+  >([]);
+  const [loading, setLoading] = useState(true);
   const [region, setRegion] = useState("Global");
   const [mode, setMode] = useState("1v1");
 
@@ -47,6 +51,7 @@ export default function LeaderboardsPage() {
   };
 
   const fetchPlayers = async () => {
+    setLoading(true);
     let query = supabase.from("player_rankings").select("*").eq("mode", mode);
 
     if (region !== "Global") {
@@ -58,11 +63,13 @@ export default function LeaderboardsPage() {
     if (error) {
       console.error(error);
       setPlayers([]);
+      setLoading(false);
       return;
     }
 
     if (!data) {
       setPlayers([]);
+      setLoading(false);
       return;
     }
 
@@ -74,6 +81,7 @@ export default function LeaderboardsPage() {
     }));
 
     setPlayers(regionalRanks);
+    setLoading(false);
   };
 
   return (
@@ -160,7 +168,30 @@ export default function LeaderboardsPage() {
 
         {/* Cards */}
         <div className="space-y-5">
-          {players.length === 0 ? (
+          {loading ? (
+            <>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="rounded-3xl border border-white/10 bg-gradient-to-r from-purple-950/40 via-black/70 to-cyan-950/40 backdrop-blur-xl p-6 animate-pulse"
+                >
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                    <div className="flex items-center gap-5">
+                      <div className="w-16 h-16 rounded-2xl bg-white/5" />
+                      <div className="space-y-3">
+                        <div className="h-6 w-48 rounded-full bg-white/5" />
+                        <div className="h-4 w-32 rounded-full bg-white/5" />
+                      </div>
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <div className="h-4 w-24 rounded-full bg-white/5 ml-auto" />
+                      <div className="h-8 w-16 rounded-full bg-white/5 ml-auto" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : players.length === 0 ? (
             <div className="text-center py-20 bg-white/[0.03] border border-white/10 rounded-3xl">
               <p className="text-zinc-500 text-xl">
                 No rankings available for this region.

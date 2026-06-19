@@ -4,19 +4,17 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
-
   const loginWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: "http://localhost:3000/profile",
+        redirectTo: `${window.location.origin}/profile`,
       },
     });
   };
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-black text-white">
-
       {/* Background Glow */}
       <div className="absolute w-[500px] h-[500px] bg-purple-600 rounded-full blur-[150px] opacity-30 top-[-100px] left-[-100px]" />
 
@@ -27,13 +25,9 @@ export default function Home() {
 
       {/* Navbar */}
       <nav className="relative z-10 flex items-center justify-between px-8 py-6">
-
-        <h1 className="text-2xl font-bold tracking-wide">
-          BFC
-        </h1>
+        <h1 className="text-2xl font-bold tracking-wide">BFC</h1>
 
         <div className="flex items-center gap-6">
-
           <Link
             href="/leaderboards"
             className="text-zinc-300 hover:text-white transition"
@@ -51,13 +45,11 @@ export default function Home() {
           >
             Login
           </button>
-
         </div>
       </nav>
 
       {/* Hero Section */}
       <section className="relative z-10 flex flex-col items-center justify-center text-center px-6 mt-32">
-
         <h1 className="text-7xl font-extrabold mb-6 tracking-tight">
           Blox Fruits Competitive
         </h1>
@@ -68,7 +60,6 @@ export default function Home() {
         </p>
 
         <div className="flex gap-4">
-
           <Link
             href="/arena"
             className="bg-white text-black px-8 py-4 rounded-2xl font-bold hover:scale-105 transition duration-300"
@@ -82,52 +73,38 @@ export default function Home() {
           >
             View Rankings
           </Link>
-
         </div>
-
       </section>
 
       {/* Feature Cards */}
       <section className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 px-8 mt-28 max-w-6xl mx-auto">
-
         <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-3xl p-8 hover:scale-105 transition duration-300 hover:border-purple-500">
-
-          <h2 className="text-2xl font-bold mb-4">
-            Ranked PvP
-          </h2>
+          <h2 className="text-2xl font-bold mb-4">Ranked PvP</h2>
 
           <p className="text-zinc-400">
-            Fight verified competitive players and climb the regional leaderboard.
+            Fight verified competitive players and climb the regional
+            leaderboard.
           </p>
-
         </div>
 
         <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-3xl p-8 hover:scale-105 transition duration-300 hover:border-blue-500">
-
-          <h2 className="text-2xl font-bold mb-4">
-            Tournaments
-          </h2>
+          <h2 className="text-2xl font-bold mb-4">Tournaments</h2>
 
           <p className="text-zinc-400">
-            Participate in official FT5 and FT10 tournaments with fair moderation.
+            Participate in official FT5 and FT10 tournaments with fair
+            moderation.
           </p>
-
         </div>
 
         <div className="bg-white/5 border border-white/10 backdrop-blur-xl rounded-3xl p-8 hover:scale-105 transition duration-300 hover:border-pink-500">
-
-          <h2 className="text-2xl font-bold mb-4">
-            Regional Rankings
-          </h2>
+          <h2 className="text-2xl font-bold mb-4">Regional Rankings</h2>
 
           <p className="text-zinc-400">
-            Compete against players from your own region with balanced matchmaking.
+            Compete against players from your own region with balanced
+            matchmaking.
           </p>
-
         </div>
-
       </section>
-
     </main>
   );
 }

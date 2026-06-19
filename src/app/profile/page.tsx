@@ -3,42 +3,57 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import type { Player } from "@/lib/types";
 
 export default function ProfilePage() {
-
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Player | null>(null);
+  const [playerRank, setPlayerRank] = useState<number | null>(null);
+  const [crewCount, setCrewCount] = useState(0);
 
   useEffect(() => {
-
     const loadProfile = async () => {
-
       const { data: authData } = await supabase.auth.getUser();
 
-      if (!authData.user) return;
+      if (!authData?.user) return;
 
-      setUser(authData.user);
-
-      const { data } = await supabase
+      const { data: playerData } = await supabase
         .from("players")
         .select("*")
         .eq("email", authData.user.email)
-        .single();
+        .maybeSingle();
 
-      setProfile(data);
+      setProfile(playerData);
 
+      if (playerData?.username) {
+        // GET BEST RANKING
+        const { data: rankings } = await supabase
+          .from("player_rankings")
+          .select("ranks")
+          .eq("username", playerData.username)
+          .order("ranks", { ascending: true })
+          .limit(1);
+
+        if (rankings && rankings.length > 0) {
+          setPlayerRank(rankings[0]?.ranks ?? null);
+        }
+
+        // GET CREW MEMBERSHIPS
+        const { count } = await supabase
+          .from("crew_members")
+          .select("*", { count: "exact", head: true })
+          .eq("member_email", authData.user.email);
+
+        setCrewCount(count ?? 0);
+      }
     };
 
     loadProfile();
-
   }, []);
 
   return (
     <main className="min-h-screen bg-black text-white overflow-hidden relative">
-
       {/* TOP NAVBAR */}
       <div className="relative z-20 flex items-center justify-between px-8 py-6">
-
         <Link
           href="/"
           className="bg-white/10 border border-white/10 px-5 py-3 rounded-2xl hover:bg-white/20 transition backdrop-blur-xl"
@@ -47,7 +62,6 @@ export default function ProfilePage() {
         </Link>
 
         <div className="flex items-center gap-4">
-
           <Link
             href="/leaderboards"
             className="text-zinc-300 hover:text-white transition"
@@ -61,9 +75,7 @@ export default function ProfilePage() {
           >
             Edit Profile
           </Link>
-
         </div>
-
       </div>
 
       {/* Background Glow */}
@@ -75,13 +87,10 @@ export default function ProfilePage() {
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
       <div className="relative z-10 max-w-6xl mx-auto px-6 py-10">
-
         {/* Main Card */}
         <div className="bg-white/5 border border-white/10 rounded-[40px] overflow-hidden backdrop-blur-2xl shadow-[0_0_100px_rgba(168,85,247,0.15)]">
-
           {/* Banner */}
           <div className="relative h-80 bg-gradient-to-br from-purple-700 via-blue-600 to-cyan-500 overflow-hidden">
-
             {/* Banner Image */}
             <div className="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center" />
 
@@ -90,18 +99,14 @@ export default function ProfilePage() {
 
             {/* Glow */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.2),transparent_60%)]" />
-
           </div>
 
           {/* Content */}
           <div className="px-8 pb-10 relative">
-
             {/* Header */}
             <div className="flex flex-col lg:flex-row lg:items-center gap-8">
-
               {/* Avatar */}
               <div className="-mt-24 relative shrink-0">
-
                 <img
                   src={profile?.avatar_url || "/avatar.png"}
                   alt="avatar"
@@ -110,21 +115,20 @@ export default function ProfilePage() {
 
                 {/* Online Dot */}
                 <div className="absolute bottom-4 right-4 w-8 h-8 bg-green-500 rounded-full border-4 border-black animate-pulse" />
-
               </div>
 
               {/* User Info */}
               <div className="pb-4 mt-6 lg:mt-0 flex-1">
-
                 <div className="flex flex-wrap items-center gap-4">
-
                   <h1 className="text-4xl md:text-5xl font-black tracking-tight">
                     {profile?.display_name || "Player"}
                   </h1>
 
-                  <div className="bg-gradient-to-r from-purple-500 to-blue-500 px-4 py-1 rounded-full text-sm font-black">
-                    VERIFIED
-                  </div>
+                  {(playerRank !== null || crewCount > 0) && (
+                    <div className="bg-gradient-to-r from-purple-500 to-blue-500 px-4 py-1 rounded-full text-sm font-black">
+                      VERIFIED
+                    </div>
+                  )}
 
                   {/* Edit Profile Button */}
                   <Link
@@ -133,7 +137,6 @@ export default function ProfilePage() {
                   >
                     ✏️
                   </Link>
-
                 </div>
 
                 <p className="text-zinc-400 text-xl mt-2">
@@ -142,28 +145,39 @@ export default function ProfilePage() {
 
                 {/* Tags */}
                 <div className="flex flex-wrap gap-3 mt-5">
+                  {playerRank !== null && (
+                    <div className="bg-purple-500/20 border border-purple-400/20 text-purple-200 px-4 py-2 rounded-full text-sm font-semibold">
+                      Ranked #{playerRank}
+                    </div>
+                  )}
 
-                  <div className="bg-purple-500/20 border border-purple-400/20 text-purple-200 px-4 py-2 rounded-full text-sm font-semibold">
-                    Competitive
-                  </div>
+                  {profile?.region && (
+                    <div className="bg-blue-500/20 border border-blue-400/20 text-blue-200 px-4 py-2 rounded-full text-sm font-semibold">
+                      🌍 {profile.region}
+                    </div>
+                  )}
 
-                  <div className="bg-blue-500/20 border border-blue-400/20 text-blue-200 px-4 py-2 rounded-full text-sm font-semibold">
-                    Asia
-                  </div>
+                  {profile?.device && (
+                    <div className="bg-cyan-500/20 border border-cyan-400/20 text-cyan-200 px-4 py-2 rounded-full text-sm font-semibold">
+                      {profile.device === "PC"
+                        ? "🖥 PC"
+                        : profile.device === "Mobile"
+                          ? "📱 Mobile"
+                          : "🎮 Console"}
+                    </div>
+                  )}
 
-                  <div className="bg-pink-500/20 border border-pink-400/20 text-pink-200 px-4 py-2 rounded-full text-sm font-semibold">
-                    Sword Main
-                  </div>
-
+                  {crewCount > 0 && (
+                    <div className="bg-green-500/20 border border-green-400/20 text-green-200 px-4 py-2 rounded-full text-sm font-semibold">
+                      👥 {crewCount} {crewCount === 1 ? "Crew" : "Crews"}
+                    </div>
+                  )}
                 </div>
-
               </div>
-
             </div>
 
             {/* Status */}
             <div className="mt-10 bg-black/30 border border-white/10 rounded-3xl p-4 backdrop-blur-xl">
-
               <p className="text-zinc-500 text-sm tracking-widest mb-2">
                 STATUS
               </p>
@@ -171,93 +185,78 @@ export default function ProfilePage() {
               <p className="text-2xl font-semibold">
                 {profile?.status || "No status"}
               </p>
-
             </div>
 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-10">
-
               <div className="bg-black/40 min-h-[180px] border border-white/10 rounded-3xl p-6 backdrop-blur-xl hover:scale-[1.02] transition flex flex-col justify-center">
-
-                <p className="text-zinc-500 text-sm">
-                  ELO
-                </p>
+                <p className="text-zinc-500 text-sm">RANK</p>
 
                 <h2 className="text-5xl font-black text-purple-400 mt-3">
-                  2450
+                  {playerRank !== null ? `#${playerRank}` : "—"}
                 </h2>
-
               </div>
 
               <div className="bg-black/40 min-h-[180px] border border-white/10 rounded-3xl p-6 backdrop-blur-xl hover:scale-[1.02] transition flex flex-col justify-center">
+                <p className="text-zinc-500 text-sm">REGION</p>
 
-                <p className="text-zinc-500 text-sm">
-                  WINS
-                </p>
+                <h2 className="text-5xl font-black text-cyan-400 mt-3">
+                  {profile?.region?.toUpperCase() || "—"}
+                </h2>
+              </div>
+
+              <div className="bg-black/40 min-h-[180px] border border-white/10 rounded-3xl p-6 backdrop-blur-xl hover:scale-[1.02] transition flex flex-col justify-center">
+                <p className="text-zinc-500 text-sm">DEVICE</p>
 
                 <h2 className="text-5xl font-black text-green-400 mt-3">
-                  120
+                  {profile?.device || "—"}
                 </h2>
-
               </div>
 
               <div className="bg-black/40 min-h-[180px] border border-white/10 rounded-3xl p-6 backdrop-blur-xl hover:scale-[1.02] transition flex flex-col justify-center">
+                <p className="text-zinc-500 text-sm">CREWS</p>
 
-                <p className="text-zinc-500 text-sm">
-                  LOSSES
-                </p>
-
-                <h2 className="text-5xl font-black text-red-400 mt-3">
-                  20
+                <h2 className="text-4xl font-black text-orange-400 mt-3">
+                  {crewCount}
                 </h2>
-
               </div>
-
-              <div className="bg-black/40 min-h-[180px] border border-white/10 rounded-3xl p-6 backdrop-blur-xl hover:scale-[1.02] transition flex flex-col justify-center">
-
-                <p className="text-zinc-500 text-sm">
-                  REGION
-                </p>
-
-                <h2 className="text-4xl font-black text-cyan-400 mt-3">
-                  ASIA
-                </h2>
-
-              </div>
-
             </div>
 
             {/* Badges */}
             <div className="mt-10">
-
               <p className="text-zinc-500 text-sm tracking-widest mb-4">
                 BADGES
               </p>
 
               <div className="flex flex-wrap gap-4">
+                {playerRank !== null && (
+                  <div className="bg-purple-500/20 border border-purple-400/20 text-purple-200 px-5 py-3 rounded-2xl font-semibold">
+                    ⚔ Ranked #{playerRank}
+                  </div>
+                )}
 
-                <div className="bg-yellow-500/20 border border-yellow-400/20 text-yellow-200 px-5 py-3 rounded-2xl font-semibold">
-                  🏆 Tournament Winner
-                </div>
+                {playerRank !== null && playerRank <= 10 && (
+                  <div className="bg-yellow-500/20 border border-yellow-400/20 text-yellow-200 px-5 py-3 rounded-2xl font-semibold">
+                    👑 Top 10
+                  </div>
+                )}
 
-                <div className="bg-purple-500/20 border border-purple-400/20 text-purple-200 px-5 py-3 rounded-2xl font-semibold">
-                  ⚔ Verified PvP
-                </div>
+                {crewCount > 0 && (
+                  <div className="bg-green-500/20 border border-green-400/20 text-green-200 px-5 py-3 rounded-2xl font-semibold">
+                    👥 Crew Member
+                  </div>
+                )}
 
-                <div className="bg-blue-500/20 border border-blue-400/20 text-blue-200 px-5 py-3 rounded-2xl font-semibold">
-                  🔥 Top 100
-                </div>
-
+                {profile?.region && (
+                  <div className="bg-blue-500/20 border border-blue-400/20 text-blue-200 px-5 py-3 rounded-2xl font-semibold">
+                    🌍 {profile.region}
+                  </div>
+                )}
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </main>
   );
 }

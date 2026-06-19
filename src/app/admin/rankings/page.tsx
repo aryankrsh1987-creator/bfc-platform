@@ -60,9 +60,9 @@ export default function AdminRankingsPage() {
 
   async function checkAccess() {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: authUserData } = await supabase.auth.getUser();
+
+      const user = authUserData?.user ?? null;
 
       console.log("Current user:", user);
 
@@ -374,6 +374,21 @@ export default function AdminRankingsPage() {
                     className="rounded-xl bg-black p-3"
                   />
 
+                  <select
+                    value={player.mode}
+                    onChange={(e) =>
+                      handleChange(
+                        player.id,
+                        "mode",
+                        e.target.value as "1v1" | "2v2",
+                      )
+                    }
+                    className="rounded-xl bg-black p-3"
+                  >
+                    <option value="1v1">1v1</option>
+                    <option value="2v2">2v2</option>
+                  </select>
+
                   <input
                     value={player.region}
                     onChange={(e) =>
@@ -398,6 +413,47 @@ export default function AdminRankingsPage() {
                     placeholder="Discord"
                     className="rounded-xl bg-black p-3"
                   />
+
+                  <input
+                    value={player.youtube || ""}
+                    onChange={(e) =>
+                      handleChange(player.id, "youtube", e.target.value)
+                    }
+                    placeholder="YouTube URL"
+                    className="rounded-xl bg-black p-3"
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {player.mode === "1v1" ? (
+                    <input
+                      value={player.username || ""}
+                      onChange={(e) =>
+                        handleChange(player.id, "username", e.target.value)
+                      }
+                      placeholder="Username"
+                      className="rounded-xl bg-black p-3"
+                    />
+                  ) : (
+                    <>
+                      <input
+                        value={player.player_1 || ""}
+                        onChange={(e) =>
+                          handleChange(player.id, "player_1", e.target.value)
+                        }
+                        placeholder="Player 1"
+                        className="rounded-xl bg-black p-3"
+                      />
+                      <input
+                        value={player.player_2 || ""}
+                        onChange={(e) =>
+                          handleChange(player.id, "player_2", e.target.value)
+                        }
+                        placeholder="Player 2"
+                        className="rounded-xl bg-black p-3"
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             ))}

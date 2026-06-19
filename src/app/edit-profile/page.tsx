@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
 export default function EditProfilePage() {
-
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -18,79 +18,70 @@ export default function EditProfilePage() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-
     loadProfile();
-
   }, []);
 
   const loadProfile = async () => {
-
     const { data: authData } = await supabase.auth.getUser();
 
-    if (!authData.user) return;
+    if (!authData?.user) return;
 
     setUser(authData.user);
 
-    const { data } = await supabase
+    const { data: profileResult } = await supabase
       .from("players")
       .select("*")
       .eq("email", authData.user.email)
-      .single();
+      .maybeSingle();
 
-    if (data) {
-
-      setUsername(data.username || "");
-      setDisplayName(data.display_name || "");
-      setAvatarUrl(data.avatar_url || "");
-      setStatus(data.status || "");
-
-      setRegion(data.region || "Asia");
-      setDevice(data.device || "PC");
-
+    if (profileResult) {
+      setUsername(profileResult.username || "");
+      setDisplayName(profileResult.display_name || "");
+      setAvatarUrl(profileResult.avatar_url || "");
+      setStatus(profileResult.status || "");
+      setRegion(profileResult.region || "Asia");
+      setDevice(profileResult.device || "PC");
     }
   };
 
   const saveProfile = async () => {
-
     if (!user) return;
 
-    const { error } = await supabase
-      .from("players")
-      .upsert(
-        {
-          email: user.email,
-          username: username,
-          display_name: displayName,
-          avatar_url: avatarUrl,
-          status: status,
-          region: region,
-          device: device,
-        },
-        {
-          onConflict: "email",
-        }
-      );
+    if (!user.email) {
+      setMessage("Your account is missing an email. Please try logging in again.");
+
+      return;
+    }
+
+    const { error } = await supabase.from("players").upsert(
+      {
+        email: user.email,
+        username: username,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        status: status,
+        region: region,
+        device: device,
+      },
+      {
+        onConflict: "email",
+      },
+    );
 
     if (error) {
-
       setMessage("Failed to save profile.");
       return;
-
     }
 
     setMessage("Profile updated successfully. Redirecting...");
 
     setTimeout(() => {
-
       window.location.href = "/profile";
-
     }, 2000);
-
   };
 
   return (
     <main className="min-h-screen bg-black text-white flex items-center justify-center px-6 py-10 overflow-hidden relative">
-
       {/* Glow */}
       <div className="absolute top-[-200px] left-[-200px] w-[500px] h-[500px] bg-purple-600 rounded-full blur-[180px] opacity-20" />
 
@@ -100,39 +91,28 @@ export default function EditProfilePage() {
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
       <div className="relative z-10 w-full max-w-2xl bg-white/5 border border-white/10 rounded-[40px] p-10 backdrop-blur-2xl shadow-[0_0_100px_rgba(168,85,247,0.15)]">
-
-        <h1 className="text-5xl font-black mb-8">
-          Edit Profile
-        </h1>
+        <h1 className="text-5xl font-black mb-8">Edit Profile</h1>
 
         <div className="space-y-6">
-
           {/* Avatar Preview */}
           <div className="flex justify-center">
-
             <img
               src={
-                avatarUrl ||
-                "https://placehold.co/400x400/7c3aed/ffffff?text=A"
+                avatarUrl || "https://placehold.co/400x400/7c3aed/ffffff?text=A"
               }
               alt="avatar"
               className="w-40 h-40 rounded-full object-cover border-4 border-black shadow-[0_0_40px_rgba(59,130,246,0.7)]"
             />
-
           </div>
 
           {/* Upload Avatar */}
           <div>
-
-            <p className="mb-2 text-zinc-400">
-              Upload Avatar
-            </p>
+            <p className="mb-2 text-zinc-400">Upload Avatar</p>
 
             <input
               type="file"
               accept="image/*"
               onChange={async (e) => {
-
                 const file = e.target.files?.[0];
 
                 if (!file) return;
@@ -144,10 +124,8 @@ export default function EditProfilePage() {
                   .upload(fileName, file);
 
                 if (error) {
-
                   setMessage("Failed to upload image.");
                   return;
-
                 }
 
                 const { data } = supabase.storage
@@ -155,19 +133,14 @@ export default function EditProfilePage() {
                   .getPublicUrl(fileName);
 
                 setAvatarUrl(data.publicUrl);
-
               }}
               className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4"
             />
-
           </div>
 
           {/* Username */}
           <div>
-
-            <p className="mb-2 text-zinc-400">
-              Username
-            </p>
+            <p className="mb-2 text-zinc-400">Username</p>
 
             <input
               type="text"
@@ -176,15 +149,11 @@ export default function EditProfilePage() {
               placeholder="fallend4rk"
               className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 outline-none"
             />
-
           </div>
 
           {/* Display Name */}
           <div>
-
-            <p className="mb-2 text-zinc-400">
-              Display Name
-            </p>
+            <p className="mb-2 text-zinc-400">Display Name</p>
 
             <input
               type="text"
@@ -193,15 +162,11 @@ export default function EditProfilePage() {
               placeholder="Excalibur"
               className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 outline-none"
             />
-
           </div>
 
           {/* Region */}
           <div>
-
-            <p className="mb-2 text-zinc-400">
-              Region
-            </p>
+            <p className="mb-2 text-zinc-400">Region</p>
 
             <select
               value={region}
@@ -215,15 +180,11 @@ export default function EditProfilePage() {
               <option>Africa</option>
               <option>Oceania</option>
             </select>
-
           </div>
 
           {/* Device */}
           <div>
-
-            <p className="mb-2 text-zinc-400">
-              Device
-            </p>
+            <p className="mb-2 text-zinc-400">Device</p>
 
             <select
               value={device}
@@ -234,15 +195,11 @@ export default function EditProfilePage() {
               <option>Mobile</option>
               <option>Console</option>
             </select>
-
           </div>
 
           {/* Status */}
           <div>
-
-            <p className="mb-2 text-zinc-400">
-              Status
-            </p>
+            <p className="mb-2 text-zinc-400">Status</p>
 
             <textarea
               value={status}
@@ -250,7 +207,6 @@ export default function EditProfilePage() {
               placeholder="Grinding ranked ⚔️"
               className="w-full h-32 bg-black/40 border border-white/10 rounded-2xl px-5 py-4 outline-none resize-none"
             />
-
           </div>
 
           {/* Save */}
@@ -267,11 +223,8 @@ export default function EditProfilePage() {
               {message}
             </div>
           )}
-
         </div>
-
       </div>
-
     </main>
   );
 }

@@ -1,18 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
 
 export default function Home() {
-
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const audioRef = useRef<HTMLAudioElement>(null);
 
   const hoverSoundRef = useRef<HTMLAudioElement>(null);
 
-  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const unlockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const transitionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const audioUnlockedRef = useRef(false);
 
   const [showEffects, setShowEffects] = useState(true);
 
@@ -20,11 +26,10 @@ export default function Home() {
 
   const [showButtons, setShowButtons] = useState(false);
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   // PLAY HOVER SOUND
   const playHoverSound = () => {
-
     if (!hoverSoundRef.current) return;
 
     hoverSoundRef.current.currentTime = 0;
@@ -32,18 +37,60 @@ export default function Home() {
     hoverSoundRef.current.volume = 0.6;
 
     hoverSoundRef.current.play().catch(() => {});
-
   };
+
+  // START LOOP
+  const startLoop = useCallback(() => {
+    setShowEffects(true);
+
+    setPlayVideo(false);
+
+    transitionTimerRef.current = setTimeout(async () => {
+      setShowEffects(false);
+
+      setPlayVideo(true);
+
+      if (videoRef.current) {
+        videoRef.current.currentTime = 0;
+
+        videoRef.current.play().catch(() => {});
+      }
+
+      if (audioRef.current && audioUnlockedRef.current) {
+        try {
+          audioRef.current.currentTime = 0;
+
+          audioRef.current.volume = 0.12;
+
+          await audioRef.current.play();
+        } catch {}
+      }
+    }, 1000);
+  }, []);
+
+  // LOOP AGAIN
+  const handleVideoEnd = useCallback(() => {
+    setPlayVideo(false);
+
+    setShowEffects(true);
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+
+      audioRef.current.currentTime = 0;
+    }
+
+    loopTimerRef.current = setTimeout(() => {
+      startLoop();
+    }, 10000);
+  }, [startLoop]);
 
   // UNLOCK AUDIO AFTER USER INTERACTION
   useEffect(() => {
-
     const unlockAudio = async () => {
-
       if (!audioRef.current) return;
 
       try {
-
         audioRef.current.volume = 0;
 
         await audioRef.current.play();
@@ -52,147 +99,70 @@ export default function Home() {
 
         audioRef.current.currentTime = 0;
 
-        setAudioUnlocked(true);
+        audioUnlockedRef.current = true;
 
         setShowButtons(true);
 
-        setTimeout(() => {
-
+        unlockTimerRef.current = setTimeout(() => {
           startLoop();
-
         }, 10000);
-
       } catch (err) {
-
         console.log("Audio blocked");
-
       }
 
-      window.removeEventListener(
-        "click",
-        unlockAudio
-      );
-
+      window.removeEventListener("click", unlockAudio);
     };
 
-    window.addEventListener(
-      "click",
-      unlockAudio
-    );
+    window.addEventListener("click", unlockAudio);
 
+    // CLEANUP ALL TIMERS ON UNMOUNT
     return () => {
+      window.removeEventListener("click", unlockAudio);
 
-      window.removeEventListener(
-        "click",
-        unlockAudio
-      );
+      if (unlockTimerRef.current !== null) {
+        clearTimeout(unlockTimerRef.current);
 
+        unlockTimerRef.current = null;
+      }
+
+      if (loopTimerRef.current !== null) {
+        clearTimeout(loopTimerRef.current);
+
+        loopTimerRef.current = null;
+      }
+
+      if (transitionTimerRef.current !== null) {
+        clearTimeout(transitionTimerRef.current);
+
+        transitionTimerRef.current = null;
+      }
     };
-
   }, []);
 
   // GET USER
   useEffect(() => {
-
     const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
 
-      const { data } =
-        await supabase.auth.getUser();
-
-      setUser(data.user);
-
+      setUser(data?.user ?? null);
     };
 
     getUser();
-
   }, []);
-
-  // START LOOP
-  const startLoop = () => {
-
-    setShowEffects(true);
-
-    setPlayVideo(false);
-
-    setTimeout(async () => {
-
-      setShowEffects(false);
-
-      setPlayVideo(true);
-
-      if (videoRef.current) {
-
-        videoRef.current.currentTime = 0;
-
-        videoRef.current.play().catch(() => {});
-
-      }
-
-      if (
-        audioRef.current &&
-        audioUnlocked
-      ) {
-
-        try {
-
-          audioRef.current.currentTime = 0;
-
-          audioRef.current.volume = 0.12;
-
-          await audioRef.current.play();
-
-        } catch {}
-
-      }
-
-    }, 1000);
-
-  };
-
-  // LOOP AGAIN
-  const handleVideoEnd = () => {
-
-    setPlayVideo(false);
-
-    setShowEffects(true);
-
-    if (audioRef.current) {
-
-      audioRef.current.pause();
-
-      audioRef.current.currentTime = 0;
-
-    }
-
-    setTimeout(() => {
-
-      startLoop();
-
-    }, 10000);
-
-  };
 
   // LOGIN
   const loginWithGoogle = async () => {
-
     await supabase.auth.signInWithOAuth({
-
       provider: "google",
 
       options: {
-
-        redirectTo:
-          `${window.location.origin}/profile`,
-
+        redirectTo: `${window.location.origin}/profile`,
       },
-
     });
-
   };
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-black text-white">
-
       {/* VIDEO BACKGROUND */}
       <video
         ref={videoRef}
@@ -201,42 +171,21 @@ export default function Home() {
         onEnded={handleVideoEnd}
         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-[3000ms]
 
-        ${playVideo
-          ? "opacity-40"
-          : "opacity-0"}
+        ${playVideo ? "opacity-40" : "opacity-0"}
 
         `}
       >
-
-        <source
-          src="/bg.mp4"
-          type="video/mp4"
-        />
-
+        <source src="/bg.mp4" type="video/mp4" />
       </video>
 
       {/* MUSIC */}
-      <audio
-        ref={audioRef}
-        preload="auto"
-        loop
-      >
-
-        <source
-          src="/music.mp3"
-          type="audio/mpeg"
-        />
-
+      <audio ref={audioRef} preload="auto" loop>
+        <source src="/music.mp3" type="audio/mpeg" />
       </audio>
 
       {/* HOVER SOUND */}
       <audio ref={hoverSoundRef}>
-
-        <source
-          src="/hover.mp3"
-          type="audio/mpeg"
-        />
-
+        <source src="/hover.mp3" type="audio/mpeg" />
       </audio>
 
       {/* DARK OVERLAY */}
@@ -250,9 +199,7 @@ export default function Home() {
 
         transition-opacity duration-[3000ms]
 
-        ${showEffects
-          ? "opacity-30"
-          : "opacity-0"}
+        ${showEffects ? "opacity-30" : "opacity-0"}
 
         `}
       />
@@ -265,9 +212,7 @@ export default function Home() {
 
         transition-opacity duration-[3000ms]
 
-        ${showEffects
-          ? "opacity-20"
-          : "opacity-0"}
+        ${showEffects ? "opacity-20" : "opacity-0"}
 
         `}
       />
@@ -282,16 +227,13 @@ export default function Home() {
 
         transition-opacity duration-[3000ms]
 
-        ${showEffects
-          ? "opacity-100"
-          : "opacity-0"}
+        ${showEffects ? "opacity-100" : "opacity-0"}
 
         `}
       />
 
       {/* NAVBAR */}
       <nav className="relative z-10 flex items-center justify-between px-8 py-6">
-
         {/* LOGO */}
         <Link
           href="/"
@@ -303,18 +245,12 @@ export default function Home() {
 
         {/* NAV ITEMS */}
         <div className="flex items-center gap-6">
-
           {/* MAILBOX */}
-          <Link
-            href="/crew-dashboard"
-            className="relative group"
-          >
-
+          <Link href="/crew-dashboard" className="relative group">
             <div
               onMouseEnter={playHoverSound}
               className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-purple-500/20 hover:border-purple-500/30 transition duration-300"
             >
-
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
@@ -323,17 +259,13 @@ export default function Home() {
                 stroke="currentColor"
                 className="w-7 h-7 text-white"
               >
-
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   d="M21.75 7.5v9a2.25 2.25 0 0 1-2.25 2.25h-15A2.25 2.25 0 0 1 2.25 16.5v-9m19.5 0A2.25 2.25 0 0 0 19.5 5.25h-15A2.25 2.25 0 0 0 2.25 7.5m19.5 0v.243a2.25 2.25 0 0 1-.876 1.789l-7.5 5.625a2.25 2.25 0 0 1-2.748 0l-7.5-5.625A2.25 2.25 0 0 1 2.25 7.743V7.5"
                 />
-
               </svg>
-
             </div>
-
           </Link>
 
           <Link
@@ -360,8 +292,6 @@ export default function Home() {
             Leaderboards
           </Link>
 
-    
-
           <Link
             href="/rules"
             onMouseEnter={playHoverSound}
@@ -387,9 +317,7 @@ export default function Home() {
           </Link>
 
           {user ? (
-
             <div className="flex items-center gap-4">
-
               <Link
                 href="/profile"
                 onMouseEnter={playHoverSound}
@@ -401,21 +329,16 @@ export default function Home() {
               <button
                 onMouseEnter={playHoverSound}
                 onClick={async () => {
-
                   await supabase.auth.signOut();
 
                   window.location.reload();
-
                 }}
                 className="bg-red-500 px-5 py-2 rounded-xl font-semibold hover:scale-105 transition"
               >
                 Logout
               </button>
-
             </div>
-
           ) : (
-
             <button
               onMouseEnter={playHoverSound}
               onClick={loginWithGoogle}
@@ -423,40 +346,29 @@ export default function Home() {
             >
               Login
             </button>
-
           )}
-
         </div>
-
       </nav>
 
       {/* HERO */}
       <section className="relative z-10 flex flex-col items-center justify-center text-center px-6 mt-32">
-
         <div
           className={`bg-white/5 border border-white/10 backdrop-blur-xl px-5 py-2 rounded-full mb-6 transition-all duration-[2500ms]
 
-          ${playVideo
-            ? "opacity-0 scale-75 blur-xl"
-            : "opacity-100 scale-100"}
+          ${playVideo ? "opacity-0 scale-75 blur-xl" : "opacity-100 scale-100"}
 
           `}
         >
-
           <span className="text-sm text-zinc-300">
             Competitive Roblox PvP Platform
           </span>
-
         </div>
 
         <div className="relative">
-
           <div
             className={`absolute inset-0 blur-[120px] bg-blue-500/40 transition-all duration-[3000ms]
 
-            ${playVideo
-              ? "scale-150 opacity-100"
-              : "scale-100 opacity-0"}
+            ${playVideo ? "scale-150 opacity-100" : "scale-100 opacity-0"}
 
             `}
           />
@@ -464,31 +376,28 @@ export default function Home() {
           <h1
             className={`relative text-7xl md:text-8xl font-black mb-6 tracking-tight leading-none transition-all duration-[3000ms]
 
-            ${playVideo
-              ? "scale-110 tracking-[10px]"
-              : "scale-100 tracking-tight"}
+            ${
+              playVideo
+                ? "scale-110 tracking-[10px]"
+                : "scale-100 tracking-tight"
+            }
 
             `}
           >
-
             <span
               className={`inline-block transition-all duration-[2500ms]
 
-              ${playVideo
-                ? "translate-y-[-20px] text-white"
-                : "translate-y-0"}
+              ${playVideo ? "translate-y-[-20px] text-white" : "translate-y-0"}
 
               `}
             >
-             <span className="text-white">
-  Union
-</span>
+              <span className="text-white">Union</span>
 
-<br />
+              <br />
 
-<span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
-  Competitive
-</span>
+              <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+                Competitive
+              </span>
             </span>
 
             <br />
@@ -496,50 +405,42 @@ export default function Home() {
             <span
               className={`inline-block bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent transition-all duration-[3000ms]
 
-              ${playVideo
-                ? "scale-125 brightness-150"
-                : "scale-100"}
+              ${playVideo ? "scale-125 brightness-150" : "scale-100"}
 
               `}
-            >
-            
-            </span>
-
+            ></span>
           </h1>
-          
-
         </div>
 
         <p
           className={`text-zinc-400 text-xl max-w-2xl mb-10 leading-relaxed transition-all duration-[2500ms]
 
-          ${playVideo
-            ? "opacity-0 translate-y-10 blur-md"
-            : "opacity-100 translate-y-0"}
+          ${
+            playVideo
+              ? "opacity-0 translate-y-10 blur-md"
+              : "opacity-100 translate-y-0"
+          }
 
           `}
         >
-
           The next generation competitive PvP platform for ranked players,
-          tournaments, regional leaderboards, verified battles,
-          crews, and global community wars.
-
+          tournaments, regional leaderboards, verified battles, crews, and
+          global community wars.
         </p>
 
         <div
           className={`flex flex-wrap justify-center gap-4 transition-all duration-[1500ms]
 
-          ${showButtons
-            ? "opacity-100 translate-y-0 scale-100"
-            : "opacity-0 translate-y-20 scale-75 pointer-events-none"}
+          ${
+            showButtons
+              ? "opacity-100 translate-y-0 scale-100"
+              : "opacity-0 translate-y-20 scale-75 pointer-events-none"
+          }
 
-          ${playVideo
-            ? "animate-pulse"
-            : ""}
+          ${playVideo ? "animate-pulse" : ""}
 
           `}
         >
-
           <Link
             href="/crews"
             onMouseEnter={playHoverSound}
@@ -555,25 +456,16 @@ export default function Home() {
           >
             View Rankings
           </Link>
-
-          
-
         </div>
 
         {playVideo && (
-
           <div className="absolute bottom-20 animate-pulse">
-
             <p className="text-blue-300 tracking-[8px] text-sm font-bold">
               ENTERING COMPETITIVE MODE
             </p>
-
           </div>
-
         )}
-
       </section>
-
     </main>
   );
 }
