@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -23,6 +23,7 @@ export default function AdminRankingsPage() {
   const [players, setPlayers] = useState<Ranking[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
 
   const [newPlayer, setNewPlayer] = useState({
     ranks: 1,
@@ -36,11 +37,7 @@ export default function AdminRankingsPage() {
     youtube: "",
   });
 
-  useEffect(() => {
-    checkAccess();
-  }, []);
-
-  async function fetchPlayers() {
+  const fetchPlayers = useCallback(async () => {
     setLoading(true);
 
     const { data, error } = await supabase
@@ -56,19 +53,17 @@ export default function AdminRankingsPage() {
     }
 
     setLoading(false);
-  }
+  }, []);
 
-  async function checkAccess() {
+  const checkAccess = useCallback(async () => {
     try {
       const { data: authUserData } = await supabase.auth.getUser();
 
       const user = authUserData?.user ?? null;
 
-      console.log("Current user:", user);
-
       if (!user?.email) {
         setLoading(false);
-        router.push("/leaderboards");
+        router.replace("/leaderboards");
         return;
       }
 
@@ -78,21 +73,26 @@ export default function AdminRankingsPage() {
         .eq("email", user.email)
         .maybeSingle();
 
-      console.log("Staff row:", data);
-      console.log("Staff error:", error);
-
       if (error || !data) {
         setLoading(false);
-        router.push("/leaderboards");
+        router.replace("/leaderboards");
         return;
       }
 
+      setAuthorized(true);
       await fetchPlayers();
     } catch (err) {
       console.error(err);
       setLoading(false);
+      router.replace("/leaderboards");
     }
-  }
+  }, [fetchPlayers, router]);
+
+  useEffect(() => {
+    // This starts an asynchronous authorization check after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void checkAccess();
+  }, [checkAccess]);
 
   const handleChange = (
     id: number,
@@ -107,36 +107,45 @@ export default function AdminRankingsPage() {
   };
 
   const saveChanges = async () => {
+    if (!confirm("Save all ranking changes? This will update every displayed row.")) {
+      return;
+    }
+
     setSaving(true);
 
     try {
-      await Promise.all(
-        players.map((player) =>
-          supabase
-            .from("player_rankings")
-            .update({
-              ranks: player.ranks,
-              mode: player.mode,
-              username: player.username,
-              player_1: player.player_1,
-              player_2: player.player_2,
-              region: player.region,
-              country_flag: player.country_flag,
-              discord: player.discord,
-              youtube: player.youtube,
-            })
-            .eq("id", player.id),
-        ),
-      );
+      // Update rankings sequentially so we can stop at the first failure,
+      // avoiding a partial commit that would leave some rows updated and
+      // others not.
+      for (const player of players) {
+        const { error } = await supabase
+          .from("player_rankings")
+          .update({
+            ranks: player.ranks,
+            mode: player.mode,
+            username: player.username,
+            player_1: player.player_1,
+            player_2: player.player_2,
+            region: player.region,
+            country_flag: player.country_flag,
+            discord: player.discord,
+            youtube: player.youtube,
+          })
+          .eq("id", player.id);
+
+        if (error) {
+          throw error;
+        }
+      }
 
       alert("Changes saved successfully!");
       await fetchPlayers();
     } catch (error) {
       console.error(error);
       alert("Failed to save changes.");
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
   };
 
   const createPlayer = async () => {
@@ -191,6 +200,14 @@ export default function AdminRankingsPage() {
 
     await fetchPlayers();
   };
+
+  if (!authorized) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        <p>{loading ? "Checking access..." : "Redirecting..."}</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-black p-8 text-white">

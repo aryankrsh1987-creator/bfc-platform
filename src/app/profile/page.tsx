@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -25,17 +26,33 @@ export default function ProfilePage() {
       setProfile(playerData);
 
       if (playerData?.username) {
-        // GET BEST RANKING
-        const { data: rankings } = await supabase
-          .from("player_rankings")
-          .select("ranks")
-          .eq("username", playerData.username)
-          .order("ranks", { ascending: true })
-          .limit(1);
+        // GET BEST RANKING (both 1v1 solo and 2v2 team placements)
+        const [{ data: soloRankings }, { data: teamRankings }] = await Promise.all([
+          supabase
+            .from("player_rankings")
+            .select("ranks")
+            .eq("mode", "1v1")
+            .eq("username", playerData.username)
+            .order("ranks", { ascending: true })
+            .limit(1),
+          supabase
+            .from("player_rankings")
+            .select("ranks")
+            .eq("mode", "2v2")
+            .or(`player_1.eq.${playerData.username},player_2.eq.${playerData.username}`)
+            .order("ranks", { ascending: true })
+            .limit(1),
+        ]);
 
-        if (rankings && rankings.length > 0) {
-          setPlayerRank(rankings[0]?.ranks ?? null);
-        }
+        const soloRank = soloRankings?.[0]?.ranks ?? null;
+        const teamRank = teamRankings?.[0]?.ranks ?? null;
+
+        // Pick the best (lowest number = highest rank) from both modes
+        setPlayerRank(
+          soloRank !== null && teamRank !== null
+            ? Math.min(soloRank, teamRank)
+            : (soloRank ?? teamRank),
+        );
 
         // GET CREW MEMBERSHIPS
         const { count } = await supabase
@@ -107,10 +124,13 @@ export default function ProfilePage() {
             <div className="flex flex-col lg:flex-row lg:items-center gap-8">
               {/* Avatar */}
               <div className="-mt-24 relative shrink-0">
-                <img
-                  src={profile?.avatar_url || "/avatar.png"}
+                <Image
+                  src={profile?.avatar_url || "https://placehold.co/400x400/7c3aed/ffffff?text=User"}
                   alt="avatar"
+                  width={176}
+                  height={176}
                   className="w-44 h-44 rounded-full border-4 border-black object-cover shadow-[0_0_50px_rgba(59,130,246,0.7)]"
+                  unoptimized
                 />
 
                 {/* Online Dot */}

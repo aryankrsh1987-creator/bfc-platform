@@ -10,7 +10,7 @@ export interface Player {
 
 export interface Crew {
   id: number;
-  owner_email: string;
+  owner_email: string | null;
   owner_username: string;
   crew_name: string;
   crew_tag: string;

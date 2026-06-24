@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -30,10 +30,6 @@ export default function LeaderboardsPage() {
     hoverAudio.current.play().catch(() => {});
   };
 
-  useEffect(() => {
-    fetchPlayers();
-  }, [region, mode]);
-
   const getRankStyle = (rank: number) => {
     if (rank === 1) {
       return "from-yellow-400 to-amber-500 shadow-[0_0_35px_rgba(251,191,36,0.45)]";
@@ -50,7 +46,7 @@ export default function LeaderboardsPage() {
     return "from-purple-500 to-cyan-500 shadow-[0_0_25px_rgba(168,85,247,0.35)]";
   };
 
-  const fetchPlayers = async () => {
+  const fetchPlayers = useCallback(async () => {
     setLoading(true);
     let query = supabase.from("player_rankings").select("*").eq("mode", mode);
 
@@ -82,7 +78,13 @@ export default function LeaderboardsPage() {
 
     setPlayers(regionalRanks);
     setLoading(false);
-  };
+  }, [mode, region]);
+
+  useEffect(() => {
+    // This starts an asynchronous rankings load when filters change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchPlayers();
+  }, [fetchPlayers]);
 
   return (
     <main className="min-h-screen bg-black text-white overflow-hidden relative">

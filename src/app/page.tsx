@@ -106,7 +106,7 @@ export default function Home() {
         unlockTimerRef.current = setTimeout(() => {
           startLoop();
         }, 10000);
-      } catch (err) {
+      } catch {
         console.log("Audio blocked");
       }
 
@@ -137,7 +137,7 @@ export default function Home() {
         transitionTimerRef.current = null;
       }
     };
-  }, []);
+  }, [startLoop]);
 
   // GET USER
   useEffect(() => {

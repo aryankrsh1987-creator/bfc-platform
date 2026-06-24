@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabase";
+import Image from "next/image";
+import { createClient } from "@/lib/supabase-server";
 
 type Props = {
   params: Promise<{
@@ -9,8 +10,10 @@ type Props = {
 export default async function PlayerProfile({ params }: Props) {
   const { username } = await params;
 
+  const supabase = await createClient();
+
   const { data: player } = await supabase
-    .from("players")
+    .from("player_public_profiles")
     .select("*")
     .eq("username", username)
     .maybeSingle();
@@ -35,10 +38,13 @@ export default async function PlayerProfile({ params }: Props) {
         <div className="flex items-center gap-6">
           {/* Avatar */}
           {player.avatar_url ? (
-            <img
+            <Image
               src={player.avatar_url}
               alt={player.display_name || player.username}
+              width={112}
+              height={112}
               className="w-28 h-28 rounded-full object-cover border-2 border-purple-500"
+              unoptimized
             />
           ) : (
             <div className="w-28 h-28 rounded-full bg-purple-600 flex items-center justify-center text-4xl font-bold">

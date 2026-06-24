@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
@@ -17,11 +18,7 @@ export default function EditProfilePage() {
 
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     const { data: authData } = await supabase.auth.getUser();
 
     if (!authData?.user) return;
@@ -42,7 +39,13 @@ export default function EditProfilePage() {
       setRegion(profileResult.region || "Asia");
       setDevice(profileResult.device || "PC");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // This starts an asynchronous profile load after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadProfile();
+  }, [loadProfile]);
 
   const saveProfile = async () => {
     if (!user) return;
@@ -96,12 +99,15 @@ export default function EditProfilePage() {
         <div className="space-y-6">
           {/* Avatar Preview */}
           <div className="flex justify-center">
-            <img
+            <Image
               src={
                 avatarUrl || "https://placehold.co/400x400/7c3aed/ffffff?text=A"
               }
               alt="avatar"
+              width={160}
+              height={160}
               className="w-40 h-40 rounded-full object-cover border-4 border-black shadow-[0_0_40px_rgba(59,130,246,0.7)]"
+              unoptimized
             />
           </div>
 
@@ -117,7 +123,13 @@ export default function EditProfilePage() {
 
                 if (!file) return;
 
-                const fileName = `${Date.now()}-${file.name}`;
+                if (!user) {
+                  setMessage("Login before uploading an avatar.");
+                  return;
+                }
+
+                const extension = file.name.split(".").pop() || "image";
+                const fileName = `${user.id}/${crypto.randomUUID()}.${extension}`;
 
                 const { error } = await supabase.storage
                   .from("avatars")

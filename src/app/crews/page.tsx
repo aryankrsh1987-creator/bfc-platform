@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Crew, Player } from "@/lib/types";
-
-const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "";
 
 export default function CrewsPage() {
   const [user, setUser] = useState<{
@@ -14,9 +12,6 @@ export default function CrewsPage() {
   } | null>(null);
 
   const [selectedRegion, setSelectedRegion] = useState("Global");
-  const [selectedDevice, setSelectedDevice] = useState("");
-
-  const [selectedMatchType, setSelectedMatchType] = useState("");
   const [search, setSearch] = useState("");
 
   const [crews, setCrews] = useState<Crew[]>([]);
@@ -28,6 +23,21 @@ export default function CrewsPage() {
   const [memberCrews, setMemberCrews] = useState<string[]>([]);
   const [applyingCrew, setApplyingCrew] = useState<string | null>(null);
   const [deletingCrewId, setDeletingCrewId] = useState<number | null>(null);
+  const [isStaff, setIsStaff] = useState(false);
+
+  // Public directory rows omit other owners' private email addresses.
+  const fetchCrews = useCallback(async () => {
+    const { data } = await supabase
+      .from("crew_directory")
+      .select("*")
+      .order("org_won", {
+        ascending: false,
+      });
+
+    if (data) {
+      setCrews(data as Crew[]);
+    }
+  }, []);
 
   // FETCH USER + CREWS
   useEffect(() => {
@@ -36,6 +46,14 @@ export default function CrewsPage() {
 
       if (data?.user) {
         setUser(data.user);
+
+        const { data: staff } = await supabase
+          .from("staffs")
+          .select("email")
+          .eq("email", data.user.email)
+          .maybeSingle();
+
+        setIsStaff(Boolean(staff));
 
         // FETCH USER PROFILE
         const { data: profile } = await supabase
@@ -72,18 +90,7 @@ export default function CrewsPage() {
     };
 
     loadData();
-  }, []);
-
-  // FETCH CREWS
-  const fetchCrews = async () => {
-    const { data } = await supabase.from("crews").select("*").order("org_won", {
-      ascending: false,
-    });
-
-    if (data) {
-      setCrews(data);
-    }
-  };
+  }, [fetchCrews]);
 
   // APPLY TO CREW
   const applyToCrew = async (crew: Crew) => {
@@ -223,13 +230,7 @@ export default function CrewsPage() {
           ].map((region) => (
             <button
               key={region}
-              onClick={() => {
-                setSelectedRegion(region);
-
-                setSelectedDevice("");
-
-                setSelectedMatchType("");
-              }}
+              onClick={() => setSelectedRegion(region)}
               className={`px-6 py-3 rounded-2xl font-bold transition duration-300
 
               ${
@@ -244,50 +245,7 @@ export default function CrewsPage() {
             </button>
           ))}
         </div>
-        {/* DEVICE FILTER */}
-        {selectedRegion !== "Global" && (
-          <div className="flex flex-wrap justify-center gap-4 mt-6">
-            {["PC", "Mobile", "Console"].map((device) => (
-              <button
-                key={device}
-                onClick={() => {
-                  setSelectedDevice(device);
 
-                  setSelectedMatchType("");
-                }}
-                className={`px-6 py-3 rounded-2xl font-bold transition
-
-        ${
-          selectedDevice === device
-            ? "bg-gradient-to-r from-cyan-500 to-blue-500"
-            : "bg-white/5 border border-white/10"
-        }`}
-              >
-                {device}
-              </button>
-            ))}
-          </div>
-        )}
-        {/* MATCH TYPE FILTER */}
-        {selectedDevice && (
-          <div className="flex flex-wrap justify-center gap-4 mt-6">
-            {["1v1", "2v2"].map((type) => (
-              <button
-                key={type}
-                onClick={() => setSelectedMatchType(type)}
-                className={`px-6 py-3 rounded-2xl font-bold transition
-
-        ${
-          selectedMatchType === type
-            ? "bg-gradient-to-r from-green-500 to-emerald-500"
-            : "bg-white/5 border border-white/10"
-        }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        )}
       </section>
 
       {/* BUTTONS */}
@@ -320,7 +278,7 @@ export default function CrewsPage() {
             })
             .map((crew, index) => (
               <div
-                key={index}
+                key={crew.id}
                 className="bg-white/[0.04] border border-white/10 rounded-3xl p-8 backdrop-blur-xl"
               >
                 {/* TOP */}
@@ -385,18 +343,20 @@ export default function CrewsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3">
-                  <a
-                    href={
-                      crew.discord?.startsWith("http")
-                        ? crew.discord
-                        : `https://${crew.discord}`
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full bg-gradient-to-r from-indigo-500 to-cyan-500 py-4 rounded-2xl font-bold hover:scale-[1.02] transition duration-300 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.35)]"
-                  >
-                    💬 Join Discord
-                  </a>
+                  {crew.discord ? (
+                    <a
+                      href={
+                        crew.discord.startsWith("http")
+                          ? crew.discord
+                          : `https://${crew.discord}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full bg-gradient-to-r from-indigo-500 to-cyan-500 py-4 rounded-2xl font-bold hover:scale-[1.02] transition duration-300 flex items-center justify-center shadow-[0_0_30px_rgba(59,130,246,0.35)]"
+                    >
+                      💬 Join Discord
+                    </a>
+                  ) : null}
 
                   {/* APPLY TO JOIN */}
                   {memberCrews.includes(crew.crew_name) ? (
@@ -404,6 +364,7 @@ export default function CrewsPage() {
                       ✅ Member
                     </div>
                   ) : user &&
+                    user.email &&
                     user.email !== crew.owner_email &&
                     !pendingRequests.includes(crew.crew_name) ? (
                       <button
@@ -427,7 +388,7 @@ export default function CrewsPage() {
                 </div>
 
                 {/* ADMIN DELETE */}
-                {user && user.email === ADMIN_EMAIL && (
+                {isStaff && (
                   <button
                     onClick={() => deleteCrew(crew.id)}
                     disabled={deletingCrewId === crew.id}

@@ -74,7 +74,7 @@ export default function CreateCrewPage() {
       {
         owner_email: user.email,
 
-        owner_username: user.user_metadata?.full_name || user.email,
+        owner_username: user.user_metadata?.["full_name"] || user.email,
 
         crew_name: crewName,
 

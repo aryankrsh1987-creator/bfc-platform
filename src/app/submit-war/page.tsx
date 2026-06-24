@@ -88,7 +88,8 @@ export default function SubmitWarPage() {
 
     // UPLOAD ALL IMAGES
     for (const image of images) {
-      const fileName = `${Date.now()}-${image.name}`;
+      const extension = image.name.split(".").pop() || "image";
+      const fileName = `${authData.user.id}/${crypto.randomUUID()}.${extension}`;
 
       const { error } = await supabase.storage
         .from("war-proofs")

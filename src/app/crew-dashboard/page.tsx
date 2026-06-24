@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import type { CrewRequest, Notification } from "@/lib/types";
@@ -16,65 +16,121 @@ export default function CrewDashboardPage() {
 
   const [processingNotifIds, setProcessingNotifIds] = useState<number[]>([]);
 
-  useEffect(() => {
-    loadRequests();
+  const loadRequests = useCallback(async () => {
+    const { data: authData, error: authError } =
+      await supabase.auth.getUser();
 
-    const interval = setInterval(() => {
-      loadRequests();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadRequests = async () => {
-    const { data: authData } = await supabase.auth.getUser();
-
-    if (!authData?.user) return;
-
-    // GET OWNER CREWS
-    const { data: crews } = await supabase
-      .from("crews")
-      .select("*")
-      .eq("owner_email", authData.user.email);
-
-    if (!crews || crews.length === 0) {
+    if (authError || !authData?.user?.email) {
+      setRequests([]);
+      setNotifications([]);
       setLoading(false);
-
       return;
     }
 
-    const crewNames = crews.map((crew) => crew.crew_name);
+    const email = authData.user.email;
 
-    // GET APPLICATIONS
-    const { data: requestData } = await supabase
-      .from("crew_requests")
-      .select("*")
-      .in("crew_name", crewNames)
-      .eq("status", "pending")
-      .order("created_at", {
-        ascending: false,
-      });
-
-    setRequests(requestData || []);
-
-    // GET NOTIFICATIONS
-    const { data: notificationData } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_email", authData.user.email)
-      .order("created_at", {
-        ascending: false,
-      });
+    // Notifications belong to the user, so they must load even when the user
+    // does not own a crew.
+    const [{ data: crews }, { data: notificationData }] = await Promise.all([
+      supabase.from("crews").select("id").eq("owner_email", email),
+      supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_email", email)
+        .order("created_at", { ascending: false }),
+    ]);
 
     setNotifications(notificationData || []);
 
+    if (!crews || crews.length === 0) {
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+
+    const crewIds = crews.map((crew) => crew.id);
+    const { data: requestData } = await supabase
+      .from("crew_requests")
+      .select("*")
+      .in("crew_id", crewIds)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
+
+    setRequests(requestData || []);
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    // This starts an asynchronous inbox refresh after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadRequests();
+
+    const interval = setInterval(loadRequests, 3000);
+
+    return () => clearInterval(interval);
+  }, [loadRequests]);
+
+  const respondToWarNotification = async (
+    notification: Notification,
+    accepted: boolean,
+  ) => {
+    if (processingNotifIds.includes(notification.id)) return;
+
+    setProcessingNotifIds((prev) => [...prev, notification.id]);
+
+    try {
+      const { error } = await supabase.rpc("respond_to_war_notification", {
+        notification_id: notification.id,
+        accepted,
+      });
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      setNotifications((prev) =>
+        prev.filter((item) => item.id !== notification.id),
+      );
+    } finally {
+      setProcessingNotifIds((prev) =>
+        prev.filter((id) => id !== notification.id),
+      );
+    }
+  };
+
+  const dismissNotification = async (notification: Notification) => {
+    if (processingNotifIds.includes(notification.id)) return;
+
+    setProcessingNotifIds((prev) => [...prev, notification.id]);
+
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("id", notification.id);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      setNotifications((prev) =>
+        prev.filter((item) => item.id !== notification.id),
+      );
+    } finally {
+      setProcessingNotifIds((prev) =>
+        prev.filter((id) => id !== notification.id),
+      );
+    }
   };
 
   const acceptRequest = async (request: CrewRequest) => {
     setProcessingIds((prev) => [...prev, request.id]);
 
     try {
+      // Insert member and update request atomically; if the update fails,
+      // roll back the member insert to avoid orphaned records.
       const { error: memberError } = await supabase.from("crew_members").insert([
         {
           crew_id: request.crew_id,
@@ -102,6 +158,13 @@ export default function CrewDashboardPage() {
 
       if (updateError) {
         alert(`Failed to update request: ${updateError.message}`);
+
+        // Roll back the member insert to avoid orphaned records.
+        await supabase
+          .from("crew_members")
+          .delete()
+          .eq("crew_id", request.crew_id)
+          .eq("member_email", request.applicant_email);
 
         return;
       }
@@ -162,12 +225,6 @@ export default function CrewDashboardPage() {
             Crews
           </Link>
 
-          <Link
-            href="/chat"
-            className="text-zinc-300 hover:text-cyan-400 transition"
-          >
-            Chat
-          </Link>
         </div>
       </nav>
 
@@ -198,9 +255,9 @@ export default function CrewDashboardPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {requests.map((request, index) => (
+            {requests.map((request) => (
               <div
-                key={index}
+                key={request.id}
                 className="bg-white/[0.04] border border-white/10 rounded-3xl p-8 backdrop-blur-xl"
               >
                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
@@ -275,9 +332,9 @@ export default function CrewDashboardPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {notifications.map((notif, index) => (
+            {notifications.map((notif) => (
               <div
-                key={index}
+                key={notif.id}
                 className="bg-white/[0.04] border border-white/10 rounded-3xl p-8 backdrop-blur-xl"
               >
                 <h2 className="text-3xl font-black mb-3">{notif.title}</h2>
@@ -285,161 +342,47 @@ export default function CrewDashboardPage() {
                 <p className="text-zinc-300 text-lg mb-6">{notif.message}</p>
 
                 <div className="flex gap-4">
-                  {/* ACCEPT */}
-                  <button
-                    onClick={async () => {
-                      if (processingNotifIds.includes(notif.id)) return;
+                  {/\((.*?)\)/.test(notif.message) ? (
+                    <>
+                      <button
+                        onClick={() => respondToWarNotification(notif, true)}
+                        disabled={processingNotifIds.includes(notif.id)}
+                        className={`px-6 py-3 rounded-2xl font-bold transition ${
+                          processingNotifIds.includes(notif.id)
+                            ? "bg-green-500/50 cursor-not-allowed"
+                            : "bg-green-500 hover:bg-green-400"
+                        }`}
+                      >
+                        {processingNotifIds.includes(notif.id)
+                          ? "..."
+                          : "✅ Accept War"}
+                      </button>
 
-                      setProcessingNotifIds((prev) => [...prev, notif.id]);
-
-                      try {
-                        const { data: authData } =
-                          await supabase.auth.getUser();
-
-                        const match = notif.message.match(/\((.*?)\)/);
-
-                        if (match?.[1]) {
-                          // CREATE PRIVATE WAR CHAT
-                          const { error: chatError } = await supabase
-                            .from("war_chats")
-                            .insert([
-                              {
-                                requester_email: match[1],
-
-                                opponent_email:
-                                  authData?.user?.email ?? null,
-                              },
-                            ]);
-
-                          if (chatError) {
-                            alert(
-                              `Failed to create war chat: ${chatError.message}`,
-                            );
-
-                            return;
-                          }
-
-                          // SEND ACCEPT NOTIFICATION
-                          const { error: notifSendError } = await supabase
-                            .from("notifications")
-                            .insert([
-                              {
-                                user_email: match[1],
-
-                                title: "⚔️ War Accepted",
-
-                                message:
-                                  "Your war request was accepted. Open war chat now.",
-                              },
-                            ]);
-
-                          if (notifSendError) {
-                            alert(
-                              `Failed to send notification: ${notifSendError.message}`,
-                            );
-
-                            return;
-                          }
-                        }
-
-                        // DELETE CURRENT NOTIFICATION
-                        const { error: deleteError } = await supabase
-                          .from("notifications")
-                          .delete()
-                          .eq("id", notif.id);
-
-                        if (deleteError) {
-                          alert(
-                            `Failed to clear notification: ${deleteError.message}`,
-                          );
-
-                          return;
-                        }
-
-                        setNotifications(
-                          notifications.filter((n) => n.id !== notif.id),
-                        );
-                      } finally {
-                        setProcessingNotifIds((prev) =>
-                          prev.filter((id) => id !== notif.id),
-                        );
-                      }
-                    }}
-                    disabled={processingNotifIds.includes(notif.id)}
-                    className={`px-6 py-3 rounded-2xl font-bold transition ${
-                      processingNotifIds.includes(notif.id)
-                        ? "bg-green-500/50 cursor-not-allowed"
-                        : "bg-green-500 hover:bg-green-400"
-                    }`}
-                  >
-                    {processingNotifIds.includes(notif.id)
-                      ? "..."
-                      : "✅ Accept War"}
-                  </button>
-
-                  {/* DODGE */}
-                  <button
-                    onClick={async () => {
-                      if (processingNotifIds.includes(notif.id)) return;
-
-                      setProcessingNotifIds((prev) => [...prev, notif.id]);
-
-                      try {
-                        const match = notif.message.match(/\((.*?)\)/);
-
-                        if (match?.[1]) {
-                          const { error: notifSendError } = await supabase
-                            .from("notifications")
-                            .insert([
-                              {
-                                user_email: match[1],
-
-                                title: "❌ War Dodged",
-
-                                message: "Your war request was dodged.",
-                              },
-                            ]);
-
-                          if (notifSendError) {
-                            alert(
-                              `Failed to send dodge notification: ${notifSendError.message}`,
-                            );
-
-                            return;
-                          }
-                        }
-
-                        const { error: deleteError } = await supabase
-                          .from("notifications")
-                          .delete()
-                          .eq("id", notif.id);
-
-                        if (deleteError) {
-                          alert(
-                            `Failed to clear notification: ${deleteError.message}`,
-                          );
-
-                          return;
-                        }
-
-                        setNotifications(
-                          notifications.filter((n) => n.id !== notif.id),
-                        );
-                      } finally {
-                        setProcessingNotifIds((prev) =>
-                          prev.filter((id) => id !== notif.id),
-                        );
-                      }
-                    }}
-                    disabled={processingNotifIds.includes(notif.id)}
-                    className={`px-6 py-3 rounded-2xl font-bold transition ${
-                      processingNotifIds.includes(notif.id)
-                        ? "bg-red-500/50 cursor-not-allowed"
-                        : "bg-red-500 hover:bg-red-400"
-                    }`}
-                  >
-                    {processingNotifIds.includes(notif.id) ? "..." : "❌ Dodge"}
-                  </button>
+                      <button
+                        onClick={() => respondToWarNotification(notif, false)}
+                        disabled={processingNotifIds.includes(notif.id)}
+                        className={`px-6 py-3 rounded-2xl font-bold transition ${
+                          processingNotifIds.includes(notif.id)
+                            ? "bg-red-500/50 cursor-not-allowed"
+                            : "bg-red-500 hover:bg-red-400"
+                        }`}
+                      >
+                        {processingNotifIds.includes(notif.id)
+                          ? "..."
+                          : "❌ Dodge"}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => dismissNotification(notif)}
+                      disabled={processingNotifIds.includes(notif.id)}
+                      className="px-6 py-3 rounded-2xl font-bold bg-white/10 hover:bg-white/20 disabled:opacity-50"
+                    >
+                      {processingNotifIds.includes(notif.id)
+                        ? "..."
+                        : "Dismiss"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
