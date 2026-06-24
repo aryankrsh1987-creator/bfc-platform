@@ -1,31 +1,43 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { Player } from "@/lib/types";
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [profile, setProfile] = useState<Player | null>(null);
   const [playerRank, setPlayerRank] = useState<number | null>(null);
   const [crewCount, setCrewCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      const { data: authData } = await supabase.auth.getUser();
+  const loadProfile = useCallback(async () => {
+    const { data: authData } = await supabase.auth.getUser();
 
-      if (!authData?.user) return;
+    if (!authData?.user) {
+      router.replace("/auth");
+      return;
+    }
 
-      const { data: playerData } = await supabase
-        .from("players")
-        .select("*")
-        .eq("email", authData.user.email)
-        .maybeSingle();
+    const { data: playerData } = await supabase
+      .from("players")
+      .select("*")
+      .eq("email", authData.user.email)
+      .maybeSingle();
 
-      setProfile(playerData);
+    // If user has no profile yet, redirect to edit-profile to create one
+    if (!playerData?.username) {
+      router.replace("/edit-profile");
+      return;
+    }
 
-      if (playerData?.username) {
+    setProfile(playerData);
+    setLoading(false);
+
+    if (playerData?.username) {
         // GET BEST RANKING (both 1v1 solo and 2v2 team placements)
         const [{ data: soloRankings }, { data: teamRankings }] = await Promise.all([
           supabase
@@ -65,7 +77,23 @@ export default function ProfilePage() {
     };
 
     loadProfile();
-  }, []);
+  }, [loadProfile, router]);
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        <p className="text-zinc-400">Loading profile...</p>
+      </main>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        <p className="text-zinc-400">Redirecting...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-black text-white overflow-hidden relative">

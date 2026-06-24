@@ -150,17 +150,6 @@ export default function Home() {
     getUser();
   }, []);
 
-  // LOGIN
-  const loginWithGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-
-      options: {
-        redirectTo: `${window.location.origin}/profile`,
-      },
-    });
-  };
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-black text-white">
       {/* VIDEO BACKGROUND */}
@@ -339,13 +328,13 @@ export default function Home() {
               </button>
             </div>
           ) : (
-            <button
+            <Link
+              href="/auth"
               onMouseEnter={playHoverSound}
-              onClick={loginWithGoogle}
               className="bg-white text-black px-5 py-2 rounded-xl font-semibold hover:scale-105 transition"
             >
               Login
-            </button>
+            </Link>
           )}
         </div>
       </nav>
